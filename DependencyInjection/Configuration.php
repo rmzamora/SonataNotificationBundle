@@ -38,6 +38,7 @@ class Configuration implements ConfigurationInterface
                     ->arrayNode('doctrine')
                         ->addDefaultsIfNotSet()
                         ->children()
+                            ->scalarNode('message_manager')->defaultValue('sonata.notification.manager.message.default')->end()
                             ->scalarNode('max_age')->defaultValue(86400)->end() # max age in second
                             ->scalarNode('pause')->defaultValue(500000)->end()  # delay in microseconds
                             ->arrayNode('states')
@@ -79,8 +80,20 @@ class Configuration implements ConfigurationInterface
                     ->scalarNode('message')->defaultValue('Sonata\\NotificationBundle\\Entity\\Message')->end()
                 ->end()
             ->end()
+            ->arrayNode('admin')
+                ->addDefaultsIfNotSet()
+                ->children()
+                    ->arrayNode('message')
+                        ->addDefaultsIfNotSet()
+                        ->children()
+                            ->scalarNode('class')->cannotBeEmpty()->defaultValue('Sonata\\NotificationBundle\\Admin\\MessageAdmin')->end()
+                            ->scalarNode('controller')->cannotBeEmpty()->defaultValue('SonataNotificationBundle:MessageAdmin')->end()
+                            ->scalarNode('translation')->cannotBeEmpty()->defaultValue('SonataNotificationBundle')->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
         ;
-
 
         return $treeBuilder;
     }
@@ -100,6 +113,7 @@ class Configuration implements ConfigurationInterface
             ->scalarNode('routing_key')->defaultValue('')->end()
             ->booleanNode('default')->defaultValue(false)->end()
             ->booleanNode('recover')->defaultValue(false)->end()
+            ->scalarNode('dead_letter_exchange')->defaultValue(null)->end()
         ->end();
 
         return $node;

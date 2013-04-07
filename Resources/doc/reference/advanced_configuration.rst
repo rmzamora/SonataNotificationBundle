@@ -18,19 +18,22 @@ Full configuration options:
 
         backends:
             doctrine:
-                max_age:      86400     # max age in second
-                pause:        500000    # delay in microseconds
-                states:                 # raising errors level
+                message_manager: sonata.notification.manager.message.default
+                max_age:         86400     # max age in second
+                pause:           500000    # delay in microseconds
+                states:                    # raising errors level
                     in_progress: 10
                     error:       20
                     open:        100
                     done:        10000
             rabbitmq:
                 exchange:     router
-			    queues: 
-			        # if `recover` is set to true, the consumer will respond with a `basic.recover` when an exception occurs
-			        # otherwise it will not respond at all and the message will be unacknowledged
-			       - { queue: defaultQueue, recover: true|false, default: true|false, routing_key: the_routing_key}
+                queues:
+                    # if `recover` is set to true, the consumer will respond with a `basic.recover` when an exception occurs
+                    # otherwise it will not respond at all and the message will be unacknowledged
+                 #
+                 # if dead_letter_exchange is set,failed messages will be rejected and sent to this exchange
+                    - { queue: defaultQueue, recover: true|false, default: true|false, routing_key: the_routing_key, dead_letter_exchange: 'my.dead.letter.exchange'}
                 connection:
                     host:     localhost
                     user:     guest

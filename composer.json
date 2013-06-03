@@ -42,7 +42,8 @@
     "target-dir": "Sonata/NotificationBundle",
     "extra": {
         "branch-alias": {
-            "dev-master": "2.2.x-dev"
+            "dev-2.2": "2.2.x-dev",
+            "dev-master": "2.3.x-dev"
         }
     }
 }

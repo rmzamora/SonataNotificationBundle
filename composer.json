@@ -36,7 +36,7 @@
         "guzzle/guzzle" : "3.*",
         "videlalvaro/php-amqplib": "2.0.*",
         "liip/monitor-bundle": "1.0.*@dev",
-        "liip/monitor": "1.o.*@dev"
+        "liip/monitor": "1.0.*@dev"
     },
     "autoload": {
         "psr-0": { "Sonata\\NotificationBundle": "" }

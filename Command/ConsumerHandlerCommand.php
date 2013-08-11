@@ -11,7 +11,7 @@
 
 namespace Sonata\NotificationBundle\Command;
 
-use Sonata\NotificationBundle\Model\MessageInterface;
+use Sonata\NotificationBundle\Event\IterateEvent;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
@@ -54,8 +54,9 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
             }
         }
 
+        $dispatcher = $this->getDispatcher();
         $type = $input->getOption('type');
-        $showDetails = $input->getOption('show-details') === 'true';
+        $showDetails = $input->getOption('show-details');
         $backend = $this->getBackend($type);
 
         $output->writeln("");
@@ -63,6 +64,9 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
 
         // initialize the backend
         $backend->initialize();
+
+        $eventDispatcher = $this->getContainer()->get('event_dispatcher');
+
         $output->writeln(" done!");
 
         if ($type === null) {
@@ -71,11 +75,10 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
             $output->writeln(sprintf("[%s] <info>Starting the backend handler</info> - %s (type: %s)", $now, get_class($backend), $type));
         }
 
-        $dispatcher = $this->getDispatcher();
-
         $startMemoryUsage = memory_get_usage(true);
         $i = 0;
-        foreach ($backend->getIterator() as $message) {
+        $iterator = $backend->getIterator();
+        foreach ($iterator as $message) {
 
             $i++;
             if (!$message->getType()) {
@@ -115,20 +118,13 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
                 }
             }
 
-            $this->optimize();
+            $eventDispatcher->dispatch(IterateEvent::EVENT_NAME, new IterateEvent($iterator, $backend, $message));
 
             if ($input->getOption('iteration') && $i >= (int) $input->getOption('iteration')) {
                 $output->writeln('End of iteration cycle');
 
                 return;
             }
-        }
-    }
-
-    private function optimize()
-    {
-        if ($this->getContainer()->has('doctrine')) {
-            $this->getContainer()->get('doctrine')->getManager()->getUnitOfWork()->clear();
         }
     }
 
@@ -178,13 +174,5 @@ class ConsumerHandlerCommand extends ContainerAwareCommand
     private function getDispatcher()
     {
         return $this->getContainer()->get('sonata.notification.dispatcher');
-    }
-
-    /**
-     * @return \Sonata\NotificationBundle\Model\MessageManagerInterface
-     */
-    private function getMessageManager()
-    {
-        return $this->getContainer()->get('sonata.notification.manager.message');
     }
 }

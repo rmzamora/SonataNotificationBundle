@@ -27,6 +27,7 @@ Full configuration options:
                     error:       20
                     open:        100
                     done:        10000
+
             rabbitmq:
                 exchange:     router
                 connection:
@@ -37,22 +38,17 @@ Full configuration options:
                     vhost:    /
                     console_url : http://some.other.host:55999/api
         queues:
+            # RABBITMQ CONFIGURATION
             # if `recover` is set to true, the consumer will respond with a `basic.recover` when an exception occurs
             # otherwise it will not respond at all and the message will be unacknowledged
             #
             # if dead_letter_exchange is set,failed messages will be rejected and sent to this exchange
             - { queue: defaultQueue, recover: true|false, default: true|false, routing_key: the_routing_key, dead_letter_exchange: 'my.dead.letter.exchange'}
+            - { queue: catchall, default: true}
 
-        # Clear doctrine context on each command iteration if doctrine service is loaded
-        #
-        # default true or false if doctrine backend
-        doctrine_optimize: true|false
-
-        # Clear doctrine context on each doctrine command batch iteration
-        # It means if backends.doctrine.batch_size = 10, doctrine context will be cleared when the 10 messages buffer will be empty
-        #
-        # default true when doctrine backend
-        doctrine_backend_optimize: true|false
+            # DOCTRINE CONFIGURATION
+            - { queue: sonata_page, types: [sonata.page.create_snapshot, sonata.page.create_snapshots]}
+            - { queue: catchall, default: true}
 
         # Listeners attached to the IterateEvent
         # Iterate event is thrown on each command iteration

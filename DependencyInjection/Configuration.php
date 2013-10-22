@@ -33,10 +33,8 @@ class Configuration implements ConfigurationInterface
             ->scalarNode('backend')->defaultValue('sonata.notification.backend.runtime')->end()
             ->append($this->getQueueNode())
             ->arrayNode('backends')
-                ->addDefaultsIfNotSet()
                 ->children()
                     ->arrayNode('doctrine')
-                        ->addDefaultsIfNotSet()
                         ->children()
                             ->scalarNode('message_manager')->defaultValue('sonata.notification.manager.message.default')->end()
                             ->scalarNode('max_age')->defaultValue(86400)->end() # max age in second
@@ -54,7 +52,6 @@ class Configuration implements ConfigurationInterface
                         ->end()
                     ->end()
                     ->arrayNode('rabbitmq')
-                        ->addDefaultsIfNotSet()
                         ->children()
                             ->scalarNode('exchange')->cannotBeEmpty()->isRequired()->end()
                             ->arrayNode('connection')
@@ -99,10 +96,6 @@ class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
             ->end()
-            ->booleanNode('doctrine_optimize')
-                ->defaultValue(true)->end() # attach doctrine optimize listener
-            ->booleanNode('doctrine_backend_optimize')
-                ->defaultValue(true)->end() # attach doctrine backend optimize listener
         ;
 
         return $treeBuilder;
@@ -118,13 +111,22 @@ class Configuration implements ConfigurationInterface
             ->prototype('array')
         ;
 
-        $connectionNode->children()
-            ->scalarNode('queue')->cannotBeEmpty()->isRequired()->end()
-            ->scalarNode('routing_key')->defaultValue('')->end()
-            ->booleanNode('default')->defaultValue(false)->end()
-            ->booleanNode('recover')->defaultValue(false)->end()
-            ->scalarNode('dead_letter_exchange')->defaultValue(null)->end()
-        ->end();
+        $connectionNode
+            ->children()
+                ->scalarNode('queue')->cannotBeEmpty()->isRequired()->end() // queue name
+                ->booleanNode('default')->defaultValue(false)->end()        // set the name of the default queue
+
+                // RabbitMQ configuration
+                ->scalarNode('routing_key')->defaultValue('')->end()        // only used by rabbitmq, direct exchange with routing_key
+                ->booleanNode('recover')->defaultValue(false)->end()        // only used by rabbitmq
+                ->scalarNode('dead_letter_exchange')->defaultValue(null)->end() // only used by rabbitmq
+
+                // Database configuration (Doctrine)
+                ->arrayNode('types')                                        // defines types handled by the message backend
+                    ->defaultValue(array())
+                    ->prototype('scalar')->end()
+                ->end()
+            ->end();
 
         return $node;
     }

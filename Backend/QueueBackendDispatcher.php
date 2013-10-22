@@ -13,8 +13,6 @@ namespace Sonata\NotificationBundle\Backend;
 
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Sonata\NotificationBundle\Model\MessageInterface;
-use Sonata\NotificationBundle\Backend\BackendInterface;
-use Sonata\NotificationBundle\Exception\QueueNotFoundException;
 
 use Liip\Monitor\Result\CheckResult;
 
@@ -36,9 +34,9 @@ abstract class QueueBackendDispatcher implements QueueDispatcherInterface, Backe
 
     /**
      *
-     * @param array   $queues
-     * @param unknown $defaultQueue
-     * @param array   $backends
+     * @param array  $queues
+     * @param string $defaultQueue
+     * @param array  $backends
      */
     public function __construct(array $queues, $defaultQueue, array $backends)
     {
@@ -76,40 +74,6 @@ abstract class QueueBackendDispatcher implements QueueDispatcherInterface, Backe
     }
 
     /**
-     * {@inheritdoc}
-     */
-    public function getBackend($type)
-    {
-        $default = null;
-
-        if (count($this->queues) === 0) {
-            foreach ($this->backends as $backend) {
-                if ($backend['type'] === 'default') {
-                    return $backend['backend'];
-                }
-            }
-        }
-
-        foreach ($this->backends as $backend) {
-            if ('all' === $type && $backend['type'] === '') {
-                return $backend['backend'];
-            }
-            if ($backend['type'] === $type) {
-                return $backend['backend'];
-            }
-            if ($backend['type'] === $this->defaultQueue) {
-                $default = $backend['backend'];
-            }
-        }
-
-        if ($default === null) {
-            throw new QueueNotFoundException('Could not find a message backend for the type ' . $type);
-        }
-
-        return $default;
-    }
-
-    /**
      * {@inheritDoc}
      */
     public function getQueues()
@@ -118,8 +82,9 @@ abstract class QueueBackendDispatcher implements QueueDispatcherInterface, Backe
     }
 
     /**
-     * @param  string                           $message
-     * @param  string                           $status
+     * @param string $message
+     * @param string $status
+     *
      * @return \Liip\Monitor\Result\CheckResult
      */
     protected function buildResult($message, $status)

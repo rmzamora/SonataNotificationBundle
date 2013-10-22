@@ -56,6 +56,8 @@ class SonataNotificationExtension extends Extension
             $loader->load('checkmonitor.xml');
         }
 
+        $this->checkConfiguration($config);
+
         $container->setAlias('sonata.notification.backend', $config['backend']);
         $container->setParameter('sonata.notification.backend', $config['backend']);
 
@@ -65,19 +67,45 @@ class SonataNotificationExtension extends Extension
         $this->configureClass($container, $config);
         $this->configureListeners($container, $config);
         $this->configureAdmin($container, $config);
-     }
+    }
 
-    protected function configureListeners(ContainerBuilder $container, $config)
+    /**
+     * @param array $config
+     */
+    protected function checkConfiguration(array $config)
+    {
+        if (isset($config['backends']) && count($config['backends']) > 1) {
+            throw new \RuntimeException('more than one backend configured, you can have only one backend configuration');
+        }
+
+        if (!isset($config['backends']['rabbitmq']) && $config['backend']  === 'sonata.notification.backend.rabbitmq') {
+            throw new \RuntimeException('Please configure the sonata_notification.backends.rabbitmq section');
+        }
+
+        if (!isset($config['backends']['doctrine']) && $config['backend']  === 'sonata.notification.backend.doctrine') {
+            throw new \RuntimeException('Please configure the sonata_notification.backends.doctrine section');
+        }
+    }
+
+    /**
+     * @param ContainerBuilder $container
+     * @param array            $config
+     */
+    protected function configureListeners(ContainerBuilder $container, array $config)
     {
         $ids = $config['iteration_listeners'];
 
-        if ($config['doctrine_optimize']) {
-            $config['doctrine_backend_optimize'] = false;
-            $ids[] = 'sonata.notification.event.doctrine_optimize';
-        }
+        // this one clean the unit of work after every iteration
+        // it must be set on any backend ...
+        $ids[] = 'sonata.notification.event.doctrine_optimize';
 
-        if ($config['doctrine_backend_optimize']) {
-            $ids[] = 'sonata.notification.event.doctrine_backend_optimize';
+        if (isset($config['backends']['doctrine']) && $config['backends']['doctrine']['batch_size'] > 1) {
+            // if the backend is doctrine and the batch size > 1, then
+            // the unit of work must be cleaned wisely to avoid any issue
+            // while persisting entities
+            $ids = array(
+                'sonata.notification.event.doctrine_backend_optimize'
+            );
         }
 
         $container->setParameter('sonata.notification.event.iteration_listeners', $ids);
@@ -113,7 +141,7 @@ class SonataNotificationExtension extends Extension
       */
     public function registerParameters(ContainerBuilder $container, $config)
     {
-        $container->setParameter('sonata.notification.message.class', $config['class']['message']);
+        $container->setParameter('sonata.notification.message.class',        $config['class']['message']);
         $container->setParameter('sonata.notification.admin.message.entity', $config['class']['message']);
     }
 
@@ -123,20 +151,25 @@ class SonataNotificationExtension extends Extension
       */
     public function configureBackends(ContainerBuilder $container, $config)
     {
+        // set the default value, will be erase if required
+        $container->setAlias('sonata.notification.manager.message', 'sonata.notification.manager.message.default');
+
         if (isset($config['backends']['rabbitmq']) && $config['backend']  === 'sonata.notification.backend.rabbitmq') {
             $this->configureRabbitmq($container, $config);
+
+            $container->removeDefinition('sonata.notification.backend.doctrine');
         } else {
             $container->removeDefinition('sonata.notification.backend.rabbitmq');
         }
 
-        if (isset($config['backends']['doctrine'])) {
-
+        if (isset($config['backends']['doctrine']) && $config['backend']  === 'sonata.notification.backend.doctrine') {
             $checkLevel = array(
-                MessageInterface::STATE_DONE => $config['backends']['doctrine']['states']['done'],
-                MessageInterface::STATE_ERROR => $config['backends']['doctrine']['states']['error'],
-                MessageInterface::STATE_IN_PROGRESS => $config['backends']['doctrine']['states']['in_progress'],
-                MessageInterface::STATE_OPEN => $config['backends']['doctrine']['states']['open'],
+                MessageInterface::STATE_DONE         => $config['backends']['doctrine']['states']['done'],
+                MessageInterface::STATE_ERROR        => $config['backends']['doctrine']['states']['error'],
+                MessageInterface::STATE_IN_PROGRESS  => $config['backends']['doctrine']['states']['in_progress'],
+                MessageInterface::STATE_OPEN         => $config['backends']['doctrine']['states']['open'],
             );
+
             $pause = $config['backends']['doctrine']['pause'];
             $maxAge = $config['backends']['doctrine']['max_age'];
             $batchSize = $config['backends']['doctrine']['batch_size'];
@@ -148,44 +181,72 @@ class SonataNotificationExtension extends Extension
 
     /**
      * @param ContainerBuilder $container
-     * @param $config
-     * @param $checkLevel
-     * @param $pause
-     * @param $maxAge
-     * @param $batchSize
+     * @param array            $config
+     * @param boolean          $checkLevel
+     * @param integer          $pause
+     * @param integer          $maxAge
+     * @param integer          $batchSize
+     *
      * @throws \RuntimeException
      */
-    protected function configureDoctrineBackends(ContainerBuilder $container, $config, $checkLevel, $pause, $maxAge, $batchSize)
+    protected function configureDoctrineBackends(ContainerBuilder $container, array $config, $checkLevel, $pause, $maxAge, $batchSize)
     {
         $queues = $config['queues'];
         $qBackends = array();
 
         $definition = $container->getDefinition('sonata.notification.backend.doctrine');
 
+        // no queue defined, set a default one
         if (count($queues) == 0) {
-            $defaultQueue = 'default';
-            $id = $this->createQueueBackend($container, $definition->getArgument(0), $checkLevel, $pause, $maxAge, $batchSize, $defaultQueue);
-            $qBackends[0] = array('type' => $defaultQueue, 'backend' => new Reference($id));
-        } else {
-            $defaultSet = false;
-            foreach ($queues as $pos => $queue) {
-                $id = $this->createQueueBackend($container, $definition->getArgument(0), $checkLevel, $pause, $maxAge, $batchSize, $queue['queue']);
-                $qBackends[$pos] = array('type' => $queue['routing_key'], 'backend' =>  new Reference($id));
-                if ($queue['default'] === true) {
-                    if ($defaultSet === true) {
-                        throw new \RuntimeException('You can only set one doctrine default queue in your sonata notification configuration.');
-                    }
-                    $defaultSet = true;
-                    $defaultQueue = $queue['routing_key'];
-                }
+            $queues = array(array(
+                'queue'   => 'default',
+                'default' => true,
+                'types'   => array()
+            ));
+        }
+
+        $defaultSet = false;
+        $declaredQueues = array();
+
+        foreach ($queues as $pos => &$queue) {
+            if (in_array($queue['queue'], $declaredQueues)) {
+                throw new \RuntimeException('The doctrine backend does not support 2 identicals queue name, please rename one queue');
             }
-            if ($defaultSet === false) {
-                throw new \RuntimeException("You need to specify a valid default queue for the doctrine backend!");
+
+            $declaredQueues[] = $queue['queue'];
+
+            // make the configuration compatible with old code and rabbitmq
+            if (isset($queue['routing_key']) && strlen($queue['routing_key']) > 0) {
+                $queue['types'] = array($queue['routing_key']);
+            }
+
+            if (empty($queue['types']) && $queue['default'] === false) {
+                throw new \RuntimeException('You cannot declared a doctrine queue with no type defined with default = false');
+            }
+
+            if (!empty($queue['types']) && $queue['default'] === true) {
+                throw new \RuntimeException('You cannot declared a doctrine queue with types defined with default = true');
+            }
+
+            $id = $this->createDoctrineQueueBackend($container, $definition->getArgument(0), $checkLevel, $pause, $maxAge, $batchSize, $queue['queue'], $queue['types']);
+            $qBackends[$pos] = array(
+                'types'   => $queue['types'],
+                'backend' => new Reference($id)
+            );
+
+            if ($queue['default'] === true) {
+                if ($defaultSet === true) {
+                    throw new \RuntimeException('You can only set one doctrine default queue in your sonata notification configuration.');
+                }
+
+                $defaultSet = true;
+                $defaultQueue = $queue['queue'];
             }
         }
 
-        $id = $this->createQueueBackend($container, $definition->getArgument(0), $checkLevel, $pause, $maxAge, $batchSize);
-        array_push($qBackends, array('type' => '', 'backend' => new Reference($id)));
+        if ($defaultSet === false) {
+            throw new \RuntimeException("You need to specify a valid default queue for the doctrine backend!");
+        }
 
         $definition
             ->replaceArgument(1, $queues)
@@ -196,26 +257,27 @@ class SonataNotificationExtension extends Extension
 
     /**
      * @param ContainerBuilder $container
-     * @param $manager
-     * @param $checkLevel
-     * @param $pause
-     * @param $maxAge
-     * @param $batchSize
-     * @param string $key
+     * @param string           $manager
+     * @param boolean          $checkLevel
+     * @param integer          $pause
+     * @param integer          $maxAge
+     * @param integer          $batchSize
+     * @param string           $key
+     * @param array            $types
+     *
      * @return string
      */
-    protected function createQueueBackend(ContainerBuilder $container, $manager, $checkLevel, $pause, $maxAge, $batchSize, $key = '')
+    protected function createDoctrineQueueBackend(ContainerBuilder $container, $manager, $checkLevel, $pause, $maxAge, $batchSize, $key, array $types = array())
     {
-        if ($key === '') {
-            $id = 'sonata.notification.backend.doctrine.default' . $this->amqpCounter++;
+        if ($key == '') {
+            $id = 'sonata.notification.backend.doctrine.default_' . $this->amqpCounter++;
         } else {
             $id = 'sonata.notification.backend.doctrine.' . $key;
         }
-        $definition = new Definition('Sonata\NotificationBundle\Backend\MessageManagerBackend', array($manager, $checkLevel, $pause, $maxAge, $batchSize));
+
+        $definition = new Definition('Sonata\NotificationBundle\Backend\MessageManagerBackend', array($manager, $checkLevel, $pause, $maxAge, $batchSize, $types));
         $definition->setPublic(false);
-        if ($key !== '') {
-            $definition->addArgument($key);
-        }
+
         $container->setDefinition($id, $definition);
 
         return $id;
@@ -225,7 +287,7 @@ class SonataNotificationExtension extends Extension
      * @param ContainerBuilder $container
      * @param array            $config
      */
-    protected function configureRabbitmq(ContainerBuilder $container, $config)
+    protected function configureRabbitmq(ContainerBuilder $container, array $config)
     {
         $queues = $config['queues'];
         $connection = $config['backends']['rabbitmq']['connection'];
@@ -233,25 +295,43 @@ class SonataNotificationExtension extends Extension
         $amqBackends = array();
 
         if (count($queues) == 0) {
-            $defaultQueue = 'default';
-            $id = $this->createAMQPBackend($container, $exchange, false, $defaultQueue);
-            $amqBackends[0] = array('type' => $defaultQueue, 'backend' => new Reference($id));
-        } else {
-            $defaultSet = false;
-            foreach ($queues as $pos => $queue) {
-                $id = $this->createAMQPBackend($container, $exchange, $queue['queue'], $queue['recover'], $queue['routing_key'], $queue['dead_letter_exchange']);
-                $amqBackends[$pos] = array('type' => $queue['routing_key'], 'backend' =>  new Reference($id));
-                if ($queue['default'] === true) {
-                    if ($defaultSet === true) {
-                        throw new \RuntimeException('You can only set one rabbitmq default queue in your sonata notification configuration.');
-                    }
-                    $defaultSet = true;
-                    $defaultQueue = $queue['routing_key'];
+            $queues = array(array(
+                'queue'       => 'default',
+                'default'     => true,
+                'routing_key' => '',
+                'recover'     => false,
+                'dead_letter_exchange' => null,
+            ));
+        }
+
+        $declaredQueues = array();
+
+        $defaultSet = false;
+        foreach ($queues as $pos => $queue) {
+            if (in_array($queue['queue'], $declaredQueues)) {
+                throw new \RuntimeException('The RabbitMQ backend does not support 2 identicals queue name, please rename one queue');
+            }
+
+            $declaredQueues[] = $queue['queue'];
+
+            $id = $this->createAMQPBackend($container, $exchange, $queue['queue'], $queue['recover'], $queue['routing_key'], $queue['dead_letter_exchange']);
+
+            $amqBackends[$pos] = array(
+                'type' => $queue['routing_key'],
+                'backend' =>  new Reference($id)
+            );
+
+            if ($queue['default'] === true) {
+                if ($defaultSet === true) {
+                    throw new \RuntimeException('You can only set one rabbitmq default queue in your sonata notification configuration.');
                 }
+                $defaultSet = true;
+                $defaultQueue = $queue['routing_key'];
             }
-            if ($defaultSet === false) {
-                throw new \RuntimeException("You need to specify a valid default queue for the rabbitmq backend!");
-            }
+        }
+
+        if ($defaultSet === false) {
+            throw new \RuntimeException("You need to specify a valid default queue for the rabbitmq backend!");
         }
 
         $container->getDefinition('sonata.notification.backend.rabbitmq')
@@ -272,11 +352,8 @@ class SonataNotificationExtension extends Extension
      */
     protected function createAMQPBackend(ContainerBuilder $container, $exchange, $name, $recover, $key = '', $deadLetterExchange = null)
     {
-        if ($key === '') {
-            $id = 'sonata.notification.backend.rabbitmq.default' . $this->amqpCounter++;
-        } else {
-            $id = 'sonata.notification.backend.rabbitmq.' . $key;
-        }
+        $id = 'sonata.notification.backend.rabbitmq.' . $this->amqpCounter++;
+
         $definition = new Definition('Sonata\NotificationBundle\Backend\AMQPBackend', array($exchange, $name, $recover, $key, $deadLetterExchange));
         $definition->setPublic(false);
         $container->setDefinition($id, $definition);

@@ -11,8 +11,8 @@
 
 namespace Sonata\NotificationBundle\Backend;
 
-use Liip\Monitor\Check\CheckInterface;
-use Liip\Monitor\Result\CheckResult;
+use ZendDiagnostics\Check\CheckInterface;
+use ZendDiagnostics\Result\CheckResult;
 
 class BackendHealthCheck implements CheckInterface
 {
@@ -50,5 +50,10 @@ class BackendHealthCheck implements CheckInterface
     public function getGroup()
     {
         return 'sonata';
+    }
+
+    public function getLabel()
+    {
+        return 'Sonata Notification Default Backend';
     }
 }

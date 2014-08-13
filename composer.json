@@ -40,9 +40,8 @@
         "rmzamora/doctrine-orm-admin-bundle": "~2.3",
         "sonata-project/core-bundle": "dev-master",
         "guzzle/guzzle" : "3.*",
-        "videlalvaro/php-amqplib": "2.0.*",
-        "liip/monitor": "~1.0",
-        "liip/monitor-bundle": "~1.0"
+        "videlalvaro/php-amqplib": "~2.0",
+        "liip/monitor-bundle": "~2.0"
     },
     "autoload": {
         "psr-4": { "Sonata\\NotificationBundle\\": "" }

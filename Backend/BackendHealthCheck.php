@@ -11,10 +11,10 @@
 
 namespace Sonata\NotificationBundle\Backend;
 
-use ZendDiagnostics\Check\CheckInterface;
-use ZendDiagnostics\Result\CheckResult;
+use ZendDiagnostics\Check\AbstractCheck;
+use ZendDiagnostics\Result\Success;
 
-class BackendHealthCheck implements CheckInterface
+class BackendHealthCheck extends AbstractCheck
 {
     protected $backend;
 
@@ -31,9 +31,7 @@ class BackendHealthCheck implements CheckInterface
      */
     public function check()
     {
-        $status = $this->backend->getStatus();
-
-        return new CheckResult($this->getName(), $status->getMessage(), $status->getStatus());
+        return $this->backend->getStatus();
     }
 
     /**
@@ -50,10 +48,5 @@ class BackendHealthCheck implements CheckInterface
     public function getGroup()
     {
         return 'sonata';
-    }
-
-    public function getLabel()
-    {
-        return 'Sonata Notification Default Backend';
     }
 }

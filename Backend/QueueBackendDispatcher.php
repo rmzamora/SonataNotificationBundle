@@ -14,7 +14,7 @@ namespace Sonata\NotificationBundle\Backend;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Sonata\NotificationBundle\Model\MessageInterface;
 
-use Liip\Monitor\Result\CheckResult;
+use ZendDiagnostics\Result\ResultInterface;
 
 /**
  * Base class for queue backent dispatchers
@@ -79,16 +79,5 @@ abstract class QueueBackendDispatcher implements QueueDispatcherInterface, Backe
     public function getQueues()
     {
         return $this->queues;
-    }
-
-    /**
-     * @param string $message
-     * @param string $status
-     *
-     * @return \Liip\Monitor\Result\CheckResult
-     */
-    protected function buildResult($message, $status)
-    {
-        return new CheckResult("backend health check", $message, $status);
     }
 }

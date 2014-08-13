@@ -22,7 +22,8 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Message\AMQPMessage;
 
-use Liip\Monitor\Result\CheckResult;
+use ZendDiagnostics\Result\Failure;
+use ZendDiagnostics\Result\Success;
 
 /**
  * Consumer side of the rabbitMQ backend.
@@ -132,7 +133,7 @@ class AMQPBackend implements BackendInterface
 
         $amq = new AMQPMessage($body, array(
             'content_type'  => 'text/plain',
-            'delivery-mode' => 2
+            'delivery_mode' => 2
         ));
 
         $this->getChannel()->basic_publish($amq, $this->exchange, $this->key);
@@ -211,10 +212,10 @@ class AMQPBackend implements BackendInterface
         try {
             $this->getChannel();
         } catch (\Exception $e) {
-            return $this->buildResult($e->getMessage(), CheckResult::CRITICAL);
+            return new Failure($e->getMessage());
         }
 
-        return $this->buildResult('Channel is running (RabbitMQ)', CheckResult::OK);
+        return new Success('Channel is running (RabbitMQ)');
     }
 
     /**
@@ -223,15 +224,5 @@ class AMQPBackend implements BackendInterface
     public function cleanup()
     {
         throw new \RuntimeException('Not implemented');
-    }
-
-    /**
-     * @param  string                           $message
-     * @param  string                           $status
-     * @return \Liip\Monitor\Result\CheckResult
-     */
-    protected function buildResult($message, $status)
-    {
-        return new CheckResult("Rabbitmq backend health check", $message, $status);
     }
 }

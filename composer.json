@@ -32,13 +32,13 @@
         "rmzamora/rest-bundle": "~1.4"
     },
     "suggest": {
-        "sonata-project/doctrine-orm-admin-bundle": "2.2.*",
+        "rmzamora/doctrine-orm-admin-bundle": "2.4.*",
         "guzzle/guzzle" : "3.*",
         "liip/monitor-bundle": "~1.0",
         "videlalvaro/php-amqplib": "2.0.*"
     },
     "require-dev": {
-        "rmzamora/doctrine-orm-admin-bundle": "~2.3",
+      "rmzamora/doctrine-orm-admin-bundle": "2.4.*",
         "sonata-project/core-bundle": "dev-master",
         "guzzle/guzzle" : "3.*",
         "videlalvaro/php-amqplib": "~2.0",
@@ -49,7 +49,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-2.3": "2.3.x-dev"
+            "dev-2.4": "2.4.x-dev"
         }
     }
 }

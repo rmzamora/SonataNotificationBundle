@@ -39,7 +39,7 @@
         "videlalvaro/php-amqplib": "2.0.*"
     },
     "require-dev": {
-        "rmzamora/doctrine-orm-admin-bundle": "2.4.*",
+        "rmzamora/doctrine-orm-admin-bundle": "2.4.1.*",
         "sonata-project/core-bundle": "dev-master",
         "guzzle/guzzle" : "~3.0",
         "videlalvaro/php-amqplib": "~2.0",
@@ -54,7 +54,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-2.4": "2.4.x-dev"
+            "dev-2.4.1": "2.4.1.x-dev"
         }
     }
 }

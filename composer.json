@@ -27,9 +27,7 @@
         "sonata-project/easy-extends-bundle": "~2.1",
         "rmzamora/core-bundle": "2.5.0.*",
         "rmzamora/datagrid-bundle": "2.5.0.*",
-        "jms/serializer-bundle": "~1.1",        
-        "friendsofsymfony/rest-bundle": "~1.1",
-        "nelmio/api-doc-bundle": "~2.4"
+        "zendframework/zenddiagnostics": "~1.0"
     },
     "suggest": {
         "rmzamora/doctrine-orm-admin-bundle": "2.5.0.*",
@@ -44,7 +42,10 @@
         "liip/monitor-bundle": "~2.0",
         "symfony/phpunit-bridge": "~2.7|~3.0",
         "fabpot/php-cs-fixer": "~0.5|~1.0",
-        "swiftmailer/swiftmailer": "~4.3|~5"
+        "swiftmailer/swiftmailer": "~4.3|~5",
+        "friendsofsymfony/rest-bundle": "~1.1",
+        "jms/serializer-bundle": "~0.11|~1.0",
+        "nelmio/api-doc-bundle": "~2.4"
     },
     "conflict": {
         "jms/serializer": "<0.13"
